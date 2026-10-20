@@ -36,6 +36,8 @@ FEATURES
 • Hover arrows, keyboard, click and a seek bar for navigation
 • Optional auto-advance (1, 2, 5 or 10 seconds) with a progress line
 • Slide overview grid for jumping anywhere
+• Per-slide rotation (0°, 90°, 180°, 270°) and horizontal or vertical flip before presenting
+• Fit-to-screen, fit-to-height, fit-to-width and 10%–200% zoom levels
 • Laser pointer, black screen and presentation timer
 • Press ? for all shortcuts
 

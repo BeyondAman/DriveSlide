@@ -14,7 +14,7 @@ DriveSlide is an independent tool for Google Drive. It is not affiliated with or
 - **Browser history.** If a slideshow opens in its own tab (from the toolbar popup, a pasted link or the right-click menu on a link), that tab's address contains the Drive file ID, so Chrome records it in your local browsing history like any other page. The in-page overlay on Drive does not create such an entry.
 
 ## What the extension stores
-Nothing. It does not use local storage, sync storage, cookies, IndexedDB or any remote database.
+Nothing persistently. It does not use local storage, sync storage, cookies, IndexedDB or any remote database. Per-slide rotation and flip choices are held in memory only for the current presentation and are discarded when it closes.
 
 ## Network access
 The extension can contact only `drive.google.com` and `drive.usercontent.google.com`. This is enforced by its Content Security Policy. All code, including the PDF renderer (Mozilla pdf.js), is bundled in the package. No remote code is loaded and there are no third-party scripts.

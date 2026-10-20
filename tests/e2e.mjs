@@ -114,8 +114,14 @@ try {
   check("viewer: PDF requested from drive.usercontent.google.com", fetched.some(u => u.includes("drive.usercontent.google.com/download") && u.includes(FILE)));
   const st = await ev(v.sid, "document.getElementById('status').textContent");
   check("viewer: 3 slides detected", st === "3 slides ready", st);
+  check("viewer: pre-presentation setup is shown", (await ev(v.sid, "!document.getElementById('setupPanel').hidden")) === true);
+  await ev(v.sid, "document.querySelector('[data-rotation=\"90\"]').click();document.getElementById('flipHorizontal').click();document.getElementById('setupScrub').value='2';document.getElementById('setupScrub').dispatchEvent(new Event('input'))");
+  check("viewer: rotation and flip are independent per slide", (await ev(v.sid, "document.querySelector('[data-rotation=\"0\"]').classList.contains('selected') && document.getElementById('flipHorizontal').getAttribute('aria-pressed') === 'false'")) === true);
+  await ev(v.sid, "document.getElementById('setupScrub').value='1';document.getElementById('setupScrub').dispatchEvent(new Event('input'))");
+  check("viewer: slide-specific setup is retained", (await ev(v.sid, "document.querySelector('[data-rotation=\"90\"]').classList.contains('selected') && document.getElementById('flipHorizontal').getAttribute('aria-pressed') === 'true'")) === true);
   await ev(v.sid, "document.getElementById('start').click()"); await sleep(1200);
   check("viewer: start shows slide 1/3", (await ev(v.sid, "document.getElementById('counter').textContent")) === "1 / 3");
+  check("viewer: rotated page preview has portrait dimensions", (await ev(v.sid, "Number(document.getElementById('canvas').style.height.replace('px','')) > Number(document.getElementById('canvas').style.width.replace('px',''))")) === true);
   check("viewer: zoom defaults to Fit screen", (await ev(v.sid, "document.getElementById('zoom').textContent")) === "Fit screen");
   await ev(v.sid, "document.getElementById('zoom').click();document.querySelector('[data-zoom=\"fit-height\"]').click()");
   check("viewer: fit-height mode can be selected", (await ev(v.sid, "document.getElementById('zoom').textContent")) === "Fit height");
@@ -180,7 +186,11 @@ try {
   check("overlay: viewer iframe target exists with the extension URL (not blocked)", targets0.some(t => t.type === "iframe" && t.url.startsWith(`chrome-extension://${id}/viewer.html`)), JSON.stringify(targets0.filter(t => t.type === "iframe").map(t => t.url)));
   let cnt = "no iframe session";
   for (const [sid, t] of sessions) if (t.type === "iframe") { const c = await ev(sid, "document.getElementById('counter')&&document.getElementById('counter').textContent"); if (c) cnt = c; }
-  check("overlay: viewer inside iframe renders 1/3", cnt === "1 / 3", cnt);
+  const iframeSession = [...sessions].find(([, t]) => t.type === "iframe")?.[0];
+  check("overlay: setup appears before the slideshow", (await ev(iframeSession, "!document.getElementById('setupPanel').hidden")) === true);
+  await ev(iframeSession, "document.getElementById('start').click()"); await sleep(1200);
+  cnt = await ev(iframeSession, "document.getElementById('counter').textContent");
+  check("overlay: viewer inside iframe renders 1/3 after setup", cnt === "1 / 3", cnt);
   const tabs = (await send("Target.getTargets")).result.targetInfos;
   check("overlay: no fallback tab was opened", !tabs.some(t => t.type === "page" && t.url.startsWith(`chrome-extension://${id}/viewer.html`)));
   await key(d.sid, "Escape"); await sleep(500);

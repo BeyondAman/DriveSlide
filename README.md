@@ -11,8 +11,10 @@ Turn Google Drive PDFs into instant slideshows with one click. No downloading or
 ## Features
 - **Present from Drive.** A **▶ Present PDF** button appears when exactly one PDF is selected (or open in Drive's preview). There is also a **Present as slideshow** item in Drive's right-click menu.
 - **In the same tab.** The slideshow opens as a fullscreen overlay on the Drive tab. Esc or ✕ closes it. If the page blocks the overlay, it falls back to a normal tab.
+- **Prepare each slide.** Before starting, preview pages and set an independent 0°/90°/180°/270° rotation or horizontal/vertical flip for each one.
 - **Other entry points.** The toolbar popup presents the current Drive PDF tab or any pasted Drive link, and a right-click on a Drive link also works.
 - **Controls.** Hover arrows, keyboard, click and a seek bar. Auto-advance (1/2/5/10 s) with a progress line, `↑ ↓` to change speed, an overview grid (`G`), laser pointer (`L`), black screen (`B`), presentation timer, fullscreen (`F`) and a shortcuts panel (`?`).
+- **Zoom.** Fit screen, fit height or fit width, or choose 10%, 25%, 50%, 75%, 100%, 125%, 150%, 175% or 200%.
 
 ## Install (development build)
 1. Open `chrome://extensions` and turn on **Developer mode**.

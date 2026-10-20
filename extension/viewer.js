@@ -6,6 +6,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("vendor/pdf.worke
 const $ = (id) => document.getElementById(id);
 const canvas = $("canvas");
 const ctx = canvas.getContext("2d");
+const setupCanvas = $("setupCanvas");
+const setupCtx = setupCanvas.getContext("2d");
 
 let pdf = null;
 let page = 1;
@@ -19,6 +21,20 @@ let startedAt = 0;
 let laserOn = false;
 let gridBuilt = false;
 let zoomMode = "fit-screen";
+let setupPage = 1;
+let setupRenderTask = null;
+let setupRenderToken = 0;
+const pageSettings = new Map();
+
+function settingsFor(n) {
+  return pageSettings.get(n) || { rotation: 0, flipX: false, flipY: false };
+}
+
+function flipTransform(settings, width, height) {
+  if (!settings.flipX && !settings.flipY) return undefined;
+  return [settings.flipX ? -1 : 1, 0, 0, settings.flipY ? -1 : 1,
+    settings.flipX ? width : 0, settings.flipY ? height : 0];
+}
 
 // When hosted in the Drive tab overlay, talk to the content script (parent) instead of owning fullscreen.
 const embedded = window.top !== window.self;
@@ -55,7 +71,9 @@ async function load(id) {
 async function render(n) {
   if (renderTask) { pending = n; renderTask.cancel(); return; }
   const p = await pdf.getPage(n);
-  const base = p.getViewport({ scale: 1 });
+  const settings = settingsFor(n);
+  const rotation = (p.rotate + settings.rotation) % 360;
+  const base = p.getViewport({ scale: 1, rotation });
   const dpr = window.devicePixelRatio || 1;
   const stage = $("stage");
   const style = getComputedStyle(stage);
@@ -67,12 +85,12 @@ async function render(n) {
     : zoomMode === "fit-height" ? fitHeight
     : zoomMode === "fit-screen" ? Math.min(fitWidth, fitHeight)
     : Number(zoomMode) / 100;
-  const vp = p.getViewport({ scale: scale * dpr });
+  const vp = p.getViewport({ scale: scale * dpr, rotation });
   canvas.width = Math.floor(vp.width);
   canvas.height = Math.floor(vp.height);
   canvas.style.width = Math.floor(vp.width / dpr) + "px";
   canvas.style.height = Math.floor(vp.height / dpr) + "px";
-  renderTask = p.render({ canvasContext: ctx, viewport: vp });
+  renderTask = p.render({ canvasContext: ctx, viewport: vp, transform: flipTransform(settings, canvas.width, canvas.height) });
   try {
     await renderTask.promise;
   } catch (e) {
@@ -172,15 +190,89 @@ async function renderThumbnail(n) {
   let p;
   try {
     p = await pdf.getPage(n);
-    const base = p.getViewport({ scale: 1 });
-    const vp = p.getViewport({ scale: 280 / base.width });
+    const settings = settingsFor(n);
+    const rotation = (p.rotate + settings.rotation) % 360;
+    const base = p.getViewport({ scale: 1, rotation });
+    const vp = p.getViewport({ scale: 280 / base.width, rotation });
     const c = $("grid").children[n - 1]?.firstChild;
     if (!c) return;
     c.width = Math.floor(vp.width);
     c.height = Math.floor(vp.height);
-    await p.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    await p.render({ canvasContext: c.getContext("2d"), viewport: vp,
+      transform: flipTransform(settings, c.width, c.height) }).promise;
   } catch { /* document closed or thumbnail render failed */ }
   finally { p?.cleanup(); }
+}
+
+function updateSetupControls() {
+  const settings = settingsFor(setupPage);
+  $("setupScrub").value = setupPage;
+  $("setupNumber").textContent = setupPage;
+  $("setupCount").textContent = `${setupPage} / ${pdf.numPages}`;
+  $("rotationOptions").querySelectorAll("[data-rotation]").forEach((b) => {
+    const selected = Number(b.dataset.rotation) === settings.rotation;
+    b.classList.toggle("selected", selected);
+    b.setAttribute("aria-pressed", String(selected));
+  });
+  for (const [id, key] of [["flipHorizontal", "flipX"], ["flipVertical", "flipY"]]) {
+    const button = $(id);
+    button.classList.toggle("selected", settings[key]);
+    button.setAttribute("aria-pressed", String(settings[key]));
+  }
+}
+
+async function renderSetupPreview() {
+  if (!pdf) return;
+  const token = ++setupRenderToken;
+  setupRenderTask?.cancel();
+  let p;
+  try {
+    p = await pdf.getPage(setupPage);
+    if (token !== setupRenderToken) return;
+    const settings = settingsFor(setupPage);
+    const rotation = (p.rotate + settings.rotation) % 360;
+    const base = p.getViewport({ scale: 1, rotation });
+    const preview = $("setupPreview");
+    const width = Math.max(1, preview.clientWidth - 24);
+    const height = Math.max(1, preview.clientHeight - 24);
+    const dpr = window.devicePixelRatio || 1;
+    const scale = Math.min(width / base.width, height / base.height);
+    const vp = p.getViewport({ scale: scale * dpr, rotation });
+    setupCanvas.width = Math.floor(vp.width);
+    setupCanvas.height = Math.floor(vp.height);
+    setupCanvas.style.width = Math.floor(vp.width / dpr) + "px";
+    setupCanvas.style.height = Math.floor(vp.height / dpr) + "px";
+    const task = p.render({ canvasContext: setupCtx, viewport: vp,
+      transform: flipTransform(settings, setupCanvas.width, setupCanvas.height) });
+    setupRenderTask = task;
+    try { await task.promise; }
+    catch (e) { if (e.name !== "RenderingCancelledException") throw e; }
+    finally { if (setupRenderTask === task) setupRenderTask = null; }
+  } catch { /* Ignore a cancelled preview or a page closed during setup. */ }
+  finally { p?.cleanup(); }
+}
+
+function bindSetupControls() {
+  $("setupScrub").max = pdf.numPages;
+  $("setupScrub").addEventListener("input", () => {
+    setupPage = Number($("setupScrub").value);
+    updateSetupControls();
+    renderSetupPreview();
+  });
+  $("rotationOptions").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rotation]");
+    if (!b) return;
+    pageSettings.set(setupPage, { ...settingsFor(setupPage), rotation: Number(b.dataset.rotation) });
+    updateSetupControls();
+    renderSetupPreview();
+  });
+  for (const [id, key] of [["flipHorizontal", "flipX"], ["flipVertical", "flipY"]]) {
+    $(id).addEventListener("click", () => {
+      pageSettings.set(setupPage, { ...settingsFor(setupPage), [key]: !settingsFor(setupPage)[key] });
+      updateSetupControls();
+      renderSetupPreview();
+    });
+  }
 }
 
 function setOverview(on) {
@@ -307,7 +399,11 @@ function bindControls() {
     wake();
     if (laserOn) $("laser").style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
   });
-  addEventListener("resize", () => pdf && render(page).catch(() => {}));
+  addEventListener("resize", () => {
+    if (!pdf) return;
+    if ($("splash").classList.contains("gone")) render(page).catch(() => {});
+    else renderSetupPreview();
+  });
   setInterval(tickClock, 1000);
 
   // Drop the document from memory as soon as the tab goes away.
@@ -331,12 +427,14 @@ function bindControls() {
     return;
   }
   $("status").textContent = pdf.numPages + (pdf.numPages === 1 ? " slide ready" : " slides ready");
-  $("start").hidden = false;
-  $("hint").hidden = false;
+  $("setupPanel").hidden = false;
+  bindSetupControls();
+  updateSetupControls();
+  renderSetupPreview();
   bindControls();
   const begin = () => { startedAt = Date.now(); $("splash").classList.add("gone"); go(1); wake(); };
-  if (embedded) { begin(); return; }
-  // Fullscreen needs a user gesture, so it starts from this click.
-  $("start").onclick = () => { toggleFs(); begin(); };
+  // Keep setup available in both the extension tab and the in-Drive overlay.
+  // Fullscreen is requested from this click when the viewer owns the tab.
+  $("start").onclick = () => { if (!embedded) toggleFs(); begin(); };
   $("start").focus();
 })();
