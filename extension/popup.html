@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>DriveSlide</h1>
+  <p class="sub">PDF Slideshow for Google Drive</p>
+  <p class="tagline">Your PDFs. One click. Fullscreen.</p>
+  <button id="current" hidden>Present this tab's PDF</button>
+  <label for="link">Or paste a Drive link</label>
+  <input id="link" type="text" placeholder="https://drive.google.com/file/d/...">
+  <button id="go">Present</button>
+  <p id="msg" class="msg"></p>
+  <p class="foot">Nothing is downloaded or sent anywhere. The PDF lives in memory only.</p>
+  <p class="foot">Independent tool, not affiliated with or endorsed by Google.</p>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "DriveSlide: PDF Slideshow for Google Drive",
+  "short_name": "DriveSlide",
+  "version": "0.1.0",
+  "description": "Turn Google Drive PDFs into instant slideshows with one click. No downloading or extra tabs.",
+  "minimum_chrome_version": "110",
+  "permissions": ["contextMenus"],
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "host_permissions": [
+    "https://drive.google.com/*",
+    "https://drive.usercontent.google.com/*"
+  ],
+  "action": {
+    "default_title": "Present a Google Drive PDF as a slideshow",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
+  },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://drive.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["viewer.html"], "matches": ["https://drive.google.com/*"] }
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; font-src 'self' blob: data:; worker-src 'self'; connect-src https://drive.google.com https://drive.usercontent.google.com; base-uri 'none'; form-action 'none'; object-src 'none'"
+  }
+}

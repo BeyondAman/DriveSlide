@@ -1,0 +1,293 @@
+import * as pdfjsLib from "./vendor/pdf.min.mjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("vendor/pdf.worker.min.mjs");
+
+const $ = (id) => document.getElementById(id);
+const canvas = $("canvas");
+const ctx = canvas.getContext("2d");
+
+let pdf = null;
+let page = 1;
+let renderTask = null;
+let pending = null;
+let idleTimer = null;
+let autoSecs = 0;
+let autoTimer = null;
+let toastTimer = null;
+let startedAt = 0;
+let laserOn = false;
+let gridBuilt = false;
+
+// When hosted in the Drive tab overlay, talk to the content script (parent) instead of owning fullscreen.
+const embedded = window.top !== window.self;
+const post = (driveslide) => { try { parent.postMessage({ driveslide }, "https://drive.google.com"); } catch {} };
+if (embedded) {
+  document.body.classList.add("embedded");
+  post("alive");
+  $("close").onclick = () => post("close");
+}
+
+function fail(msg) {
+  const s = $("status");
+  s.textContent = msg;
+  s.className = "err";
+}
+
+// The PDF is fetched straight into an ArrayBuffer. It is never written to disk by us,
+// and cache: "no-store" keeps it out of the HTTP cache as well.
+async function load(id) {
+  const url = "https://drive.usercontent.google.com/download?export=download&confirm=t&id=" + encodeURIComponent(id);
+  const res = await fetch(url, { credentials: "include", cache: "no-store", referrerPolicy: "no-referrer" });
+  if (!res.ok) throw new Error("Drive returned HTTP " + res.status + ". You may not have access to this file.");
+  const buf = await res.arrayBuffer();
+  const head = new TextDecoder().decode(new Uint8Array(buf, 0, Math.min(1024, buf.byteLength)));
+  if (!head.includes("%PDF-")) {
+    throw new Error(
+      "This file did not come back as a PDF. Make sure it is a PDF, that you are signed in to Google in this browser, " +
+      "and that you have access (files with downloading disabled by the owner cannot be presented)."
+    );
+  }
+  return buf;
+}
+
+async function render(n) {
+  if (renderTask) { pending = n; renderTask.cancel(); return; }
+  const p = await pdf.getPage(n);
+  const base = p.getViewport({ scale: 1 });
+  const dpr = window.devicePixelRatio || 1;
+  const fit = Math.min(innerWidth / base.width, innerHeight / base.height);
+  const vp = p.getViewport({ scale: fit * dpr });
+  canvas.width = Math.floor(vp.width);
+  canvas.height = Math.floor(vp.height);
+  canvas.style.width = Math.floor(vp.width / dpr) + "px";
+  canvas.style.height = Math.floor(vp.height / dpr) + "px";
+  renderTask = p.render({ canvasContext: ctx, viewport: vp });
+  try {
+    await renderTask.promise;
+  } catch (e) {
+    if (e.name !== "RenderingCancelledException") throw e;
+  }
+  renderTask = null;
+  p.cleanup();
+  if (pending !== null) { const q = pending; pending = null; await render(q); }
+}
+
+function go(n) {
+  n = Math.max(1, Math.min(pdf.numPages, n));
+  page = n;
+  $("counter").textContent = n + " / " + pdf.numPages;
+  $("scrub").value = n;
+  if (gridBuilt) [...$("grid").children].forEach((t, i) => t.classList.toggle("cur", i + 1 === n));
+  render(n).catch(() => toast("Couldn't render this slide"));
+  restartAuto();
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+// ---- auto-advance: Up steps 2 -> 5 -> 10 s, Down steps 10 -> 5 -> 2 -> 1 s -> manual -------
+function restartAuto() {
+  clearTimeout(autoTimer);
+  const bar = $("progress");
+  bar.style.transition = "none";
+  bar.style.width = "0";
+  if (!autoSecs || !pdf) return;
+  void bar.offsetWidth; // restart the CSS transition
+  bar.style.transition = "width " + autoSecs + "s linear";
+  bar.style.width = "100%";
+  autoTimer = setTimeout(() => {
+    if (page < pdf.numPages) go(page + 1);
+    else setAuto(0, "Last slide: back to manual");
+  }, autoSecs * 1000);
+}
+
+function setAuto(secs, msg) {
+  autoSecs = secs;
+  $("auto").textContent = secs ? "⏱ " + secs + " s" : "⏱ Manual";
+  $("auto").classList.toggle("on", secs > 0);
+  $("autoMenu").querySelectorAll("button").forEach((b) => b.classList.toggle("on", Number(b.dataset.secs) === secs));
+  restartAuto();
+  toast(msg || (secs ? "Auto-advance every " + secs + " s" : "Manual"));
+}
+
+const autoSlower = () => setAuto([2, 5, 10].find((v) => v > autoSecs) ?? autoSecs);
+const autoFaster = () => setAuto([10, 5, 2, 1, 0].find((v) => v < autoSecs) ?? 0);
+
+// ---- panels: overview grid, help, laser, clock ------------------------------------------
+async function buildGrid() {
+  if (gridBuilt) return;
+  gridBuilt = true;
+  const grid = $("grid");
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const b = document.createElement("button");
+    b.className = "thumb" + (i === page ? " cur" : "");
+    const c = document.createElement("canvas");
+    const l = document.createElement("span");
+    l.textContent = i;
+    b.append(c, l);
+    b.onclick = () => { go(i); setOverview(false); };
+    grid.appendChild(b);
+  }
+  try {
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const p = await pdf.getPage(i);
+      const base = p.getViewport({ scale: 1 });
+      const vp = p.getViewport({ scale: 280 / base.width });
+      const c = grid.children[i - 1].firstChild;
+      c.width = Math.floor(vp.width);
+      c.height = Math.floor(vp.height);
+      await p.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+      p.cleanup();
+    }
+  } catch { /* document closed while rendering thumbnails */ }
+}
+
+function setOverview(on) {
+  $("overview").hidden = !on;
+  $("gridBtn").classList.toggle("on", on);
+  if (on) {
+    buildGrid();
+    const cur = $("grid").children[page - 1];
+    if (cur) cur.scrollIntoView({ block: "center" });
+  }
+}
+
+function setHelp(on) { $("help").hidden = !on; }
+
+function setLaser(on) {
+  laserOn = on;
+  $("laser").hidden = !on;
+  document.body.classList.toggle("laser", on);
+  $("laserBtn").classList.toggle("on", on);
+  toast(on ? "Laser pointer on (L to turn off)" : "Laser pointer off");
+}
+
+function tickClock() {
+  if (!startedAt) return;
+  const s = Math.floor((Date.now() - startedAt) / 1000);
+  const m = Math.floor(s / 60);
+  $("clock").textContent = m + ":" + String(s % 60).padStart(2, "0");
+}
+
+// Closes the topmost transient panel; returns true if one was open.
+function closePanels() {
+  let any = false;
+  for (const id of ["overview", "help", "autoMenu"]) {
+    if (!$(id).hidden) { $(id).hidden = true; any = true; }
+  }
+  $("gridBtn").classList.remove("on");
+  return any;
+}
+
+function toggleFs() {
+  if (embedded) { post("fs"); return; }
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+
+function wake() {
+  $("bar").classList.remove("hidden");
+  document.body.classList.remove("idle");
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if ($("bar").matches(":hover")) { wake(); return; }
+    $("bar").classList.add("hidden");
+    $("autoMenu").hidden = true;
+    document.body.classList.add("idle");
+  }, 2200);
+}
+
+// Esc and shortcuts work before and after the PDF loads.
+addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    if (closePanels()) { e.preventDefault(); return; }
+    if (!$("blank").hidden) { $("blank").hidden = true; return; }
+    if (embedded) post("close"); // Esc while fullscreen is consumed by the browser itself
+    return;
+  }
+  if (!pdf || e.ctrlKey || e.metaKey || e.altKey) return;
+  switch (e.key) {
+    case "ArrowRight": case "PageDown": case " ": case "Enter": go(page + 1); break;
+    case "ArrowLeft": case "PageUp": case "Backspace": go(page - 1); break;
+    case "ArrowUp": autoSlower(); break;
+    case "ArrowDown": autoFaster(); break;
+    case "Home": go(1); break;
+    case "End": go(pdf.numPages); break;
+    case "f": case "F": toggleFs(); break;
+    case "b": case "B": case ".": $("blank").hidden = !$("blank").hidden; break;
+    case "g": case "G": setOverview($("overview").hidden); break;
+    case "l": case "L": setLaser(!laserOn); break;
+    case "?": case "h": case "H": setHelp($("help").hidden); break;
+    default: return;
+  }
+  e.preventDefault();
+});
+
+function bindControls() {
+  const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+  $("prev").onclick = stop(() => go(page - 1));
+  $("next").onclick = stop(() => go(page + 1));
+  $("zl").onclick = stop(() => go(page - 1));
+  $("zr").onclick = stop(() => go(page + 1));
+  $("fs").onclick = stop(toggleFs);
+  $("laserBtn").onclick = stop(() => setLaser(!laserOn));
+  $("gridBtn").onclick = stop(() => setOverview($("overview").hidden));
+  $("helpBtn").onclick = stop(() => setHelp($("help").hidden));
+  $("ovClose").onclick = stop(() => setOverview(false));
+  $("clock").onclick = stop(() => { startedAt = Date.now(); tickClock(); toast("Timer reset"); });
+  $("auto").onclick = stop(() => { $("autoMenu").hidden = !$("autoMenu").hidden; });
+  $("autoMenu").onclick = (e) => {
+    e.stopPropagation();
+    const b = e.target.closest("button");
+    if (b) { setAuto(Number(b.dataset.secs)); $("autoMenu").hidden = true; }
+  };
+  $("scrub").max = pdf.numPages;
+  $("scrub").addEventListener("input", (e) => go(Number(e.target.value)));
+  $("scrub").addEventListener("click", (e) => e.stopPropagation());
+  $("overview").addEventListener("click", (e) => { if (e.target === $("overview")) setOverview(false); });
+  $("help").addEventListener("click", () => setHelp(false));
+  $("stage").addEventListener("click", (e) => { closePanels(); go(e.clientX < innerWidth / 3 ? page - 1 : page + 1); });
+  $("blank").addEventListener("click", () => { $("blank").hidden = true; });
+
+  document.addEventListener("mousemove", (e) => {
+    wake();
+    if (laserOn) $("laser").style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
+  });
+  addEventListener("resize", () => pdf && render(page).catch(() => {}));
+  setInterval(tickClock, 1000);
+
+  // Drop the document from memory as soon as the tab goes away.
+  addEventListener("pagehide", () => { if (pdf) pdf.destroy(); pdf = null; });
+}
+
+(async () => {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) { fail("No valid Google Drive file id was provided."); return; }
+  try {
+    const data = await load(id);
+    pdf = await pdfjsLib.getDocument({
+      data,
+      isEvalSupported: false,
+      enableXfa: false,
+      disableAutoFetch: true,
+      disableStream: true,
+    }).promise;
+  } catch (e) {
+    fail(e.message || String(e));
+    return;
+  }
+  $("status").textContent = pdf.numPages + (pdf.numPages === 1 ? " slide ready" : " slides ready");
+  $("start").hidden = false;
+  $("hint").hidden = false;
+  bindControls();
+  const begin = () => { startedAt = Date.now(); $("splash").classList.add("gone"); go(1); wake(); };
+  if (embedded) { begin(); return; }
+  // Fullscreen needs a user gesture, so it starts from this click.
+  $("start").onclick = () => { toggleFs(); begin(); };
+  $("start").focus();
+})();

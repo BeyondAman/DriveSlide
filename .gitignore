@@ -1,0 +1,20 @@
+# build output
+dist/
+*.zip
+*.crx
+
+# local secrets and keys
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# tooling and OS
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
