@@ -30,6 +30,7 @@
         <dt>Home End</dt><dd>First / last slide</dd>
         <dt>↑</dt><dd>Auto-advance slower: 2 → 5 → 10 s</dd>
         <dt>↓</dt><dd>Auto-advance faster: 10 → 5 → 2 → 1 s → manual</dd>
+        <dt>Zoom menu</dt><dd>Fit screen, fit height, fit width, or set 10%–200% zoom</dd>
         <dt>G</dt><dd>Slide overview</dd>
         <dt>L</dt><dd>Laser pointer</dd>
         <dt>B</dt><dd>Black screen</dd>
@@ -53,7 +54,26 @@
     <button id="next" class="ic" title="Next (→)">›</button>
     <span class="sep"></span>
     <div class="menu-wrap">
-      <button id="auto" class="chip" title="Auto-advance (↑ ↓)">⏱ Manual</button>
+      <button id="zoom" class="chip" title="Fit and zoom options" aria-haspopup="true">Fit screen</button>
+      <div id="zoomMenu" hidden>
+        <span class="menu-label">Fit</span>
+        <button data-zoom="fit-screen" class="on">Fit screen</button>
+        <button data-zoom="fit-height">Fit height</button>
+        <button data-zoom="fit-width">Fit width</button>
+        <span class="menu-label">Zoom</span>
+        <button data-zoom="10">10%</button>
+        <button data-zoom="25">25%</button>
+        <button data-zoom="50">50%</button>
+        <button data-zoom="75">75%</button>
+        <button data-zoom="100">100%</button>
+        <button data-zoom="125">125%</button>
+        <button data-zoom="150">150%</button>
+        <button data-zoom="175">175%</button>
+        <button data-zoom="200">200%</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button id="auto" class="chip" title="Auto-advance (↑ ↓)" aria-haspopup="true">⏱ Manual</button>
       <div id="autoMenu" hidden>
         <button data-secs="0">Manual</button>
         <button data-secs="1">1 s</button>

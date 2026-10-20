@@ -18,6 +18,7 @@ let toastTimer = null;
 let startedAt = 0;
 let laserOn = false;
 let gridBuilt = false;
+let zoomMode = "fit-screen";
 
 // When hosted in the Drive tab overlay, talk to the content script (parent) instead of owning fullscreen.
 const embedded = window.top !== window.self;
@@ -56,8 +57,17 @@ async function render(n) {
   const p = await pdf.getPage(n);
   const base = p.getViewport({ scale: 1 });
   const dpr = window.devicePixelRatio || 1;
-  const fit = Math.min(innerWidth / base.width, innerHeight / base.height);
-  const vp = p.getViewport({ scale: fit * dpr });
+  const stage = $("stage");
+  const style = getComputedStyle(stage);
+  const width = Math.max(1, stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+  const height = Math.max(1, stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
+  const fitWidth = width / base.width;
+  const fitHeight = height / base.height;
+  const scale = zoomMode === "fit-width" ? fitWidth
+    : zoomMode === "fit-height" ? fitHeight
+    : zoomMode === "fit-screen" ? Math.min(fitWidth, fitHeight)
+    : Number(zoomMode) / 100;
+  const vp = p.getViewport({ scale: scale * dpr });
   canvas.width = Math.floor(vp.width);
   canvas.height = Math.floor(vp.height);
   canvas.style.width = Math.floor(vp.width / dpr) + "px";
@@ -118,6 +128,17 @@ function setAuto(secs, msg) {
 
 const autoSlower = () => setAuto([2, 5, 10].find((v) => v > autoSecs) ?? autoSecs);
 const autoFaster = () => setAuto([10, 5, 2, 1, 0].find((v) => v < autoSecs) ?? 0);
+
+function setZoom(mode) {
+  zoomMode = mode;
+  const labels = { "fit-screen": "Fit screen", "fit-height": "Fit height", "fit-width": "Fit width" };
+  $("zoom").textContent = labels[mode] || `${mode}%`;
+  $("zoomMenu").querySelectorAll("[data-zoom]").forEach((b) => b.classList.toggle("on", b.dataset.zoom === mode));
+  $("zoomMenu").hidden = true;
+  const stage = $("stage");
+  stage.scrollTo(0, 0);
+  render(page).catch(() => toast("Couldn't resize this slide"));
+}
 
 // ---- panels: overview grid, help, laser, clock ------------------------------------------
 async function buildGrid() {
@@ -192,7 +213,7 @@ function tickClock() {
 // Closes the topmost transient panel; returns true if one was open.
 function closePanels() {
   let any = false;
-  for (const id of ["overview", "help", "autoMenu"]) {
+  for (const id of ["overview", "help", "autoMenu", "zoomMenu"]) {
     if (!$(id).hidden) { $(id).hidden = true; any = true; }
   }
   $("gridBtn").classList.remove("on");
@@ -213,6 +234,7 @@ function wake() {
     if ($("bar").matches(":hover")) { wake(); return; }
     $("bar").classList.add("hidden");
     $("autoMenu").hidden = true;
+    $("zoomMenu").hidden = true;
     document.body.classList.add("idle");
   }, 2200);
 }
@@ -255,7 +277,19 @@ function bindControls() {
   $("helpBtn").onclick = stop(() => setHelp($("help").hidden));
   $("ovClose").onclick = stop(() => setOverview(false));
   $("clock").onclick = stop(() => { startedAt = Date.now(); tickClock(); toast("Timer reset"); });
-  $("auto").onclick = stop(() => { $("autoMenu").hidden = !$("autoMenu").hidden; });
+  $("auto").onclick = stop(() => {
+    $("zoomMenu").hidden = true;
+    $("autoMenu").hidden = !$("autoMenu").hidden;
+  });
+  $("zoom").onclick = stop(() => {
+    $("autoMenu").hidden = true;
+    $("zoomMenu").hidden = !$("zoomMenu").hidden;
+  });
+  $("zoomMenu").onclick = (e) => {
+    e.stopPropagation();
+    const b = e.target.closest("[data-zoom]");
+    if (b) setZoom(b.dataset.zoom);
+  };
   $("autoMenu").onclick = (e) => {
     e.stopPropagation();
     const b = e.target.closest("button");

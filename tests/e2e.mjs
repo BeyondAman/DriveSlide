@@ -116,6 +116,13 @@ try {
   check("viewer: 3 slides detected", st === "3 slides ready", st);
   await ev(v.sid, "document.getElementById('start').click()"); await sleep(1200);
   check("viewer: start shows slide 1/3", (await ev(v.sid, "document.getElementById('counter').textContent")) === "1 / 3");
+  check("viewer: zoom defaults to Fit screen", (await ev(v.sid, "document.getElementById('zoom').textContent")) === "Fit screen");
+  await ev(v.sid, "document.getElementById('zoom').click();document.querySelector('[data-zoom=\"fit-height\"]').click()");
+  check("viewer: fit-height mode can be selected", (await ev(v.sid, "document.getElementById('zoom').textContent")) === "Fit height");
+  await ev(v.sid, "document.getElementById('zoom').click();document.querySelector('[data-zoom=\"fit-width\"]').click()");
+  check("viewer: fit-width mode can be selected", (await ev(v.sid, "document.getElementById('zoom').textContent")) === "Fit width");
+  await ev(v.sid, "document.getElementById('zoom').click();document.querySelector('[data-zoom=\"125\"]').click()");
+  check("viewer: percentage zoom can be selected", (await ev(v.sid, "document.getElementById('zoom').textContent")) === "125%");
   const ink = await ev(v.sid, "(()=>{const c=document.getElementById('canvas');const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let k=0;for(let i=0;i<d.length;i+=4)if(d[i]<128)k++;return k})()");
   check("viewer: canvas rendered real text pixels", ink > 500, "dark pixels=" + ink);
   await key(v.sid, "ArrowRight"); await sleep(300);

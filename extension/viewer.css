@@ -1,8 +1,8 @@
 :root { --panel: rgba(32,33,36,.92); --hover: rgba(255,255,255,.14); --accent: #8ab4f8; --accent-bg: #1a73e8; }
 html, body { margin: 0; height: 100%; background: #000; color: #fff; overflow: hidden; font-family: system-ui, sans-serif; }
 button { font-family: inherit; }
-#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-#canvas { display: block; background: #fff; }
+#stage { position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: flex-start; overflow: auto; padding: 24px; }
+#canvas { display: block; margin: auto; background: #fff; }
 #blank { position: fixed; inset: 0; background: #000; z-index: 5; }
 body.idle { cursor: none; }
 
@@ -45,10 +45,12 @@ body.embedded #start, body.embedded #hint { display: none; }
 .sep { width: 1px; height: 22px; background: rgba(255,255,255,.25); margin: 0 4px; }
 #scrub { width: min(26vw, 260px); accent-color: var(--accent); cursor: pointer; }
 .menu-wrap { position: relative; }
-#autoMenu { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; padding: 6px; border-radius: 12px; background: var(--panel); box-shadow: 0 4px 18px rgba(0,0,0,.5); }
-#autoMenu[hidden] { display: none; }
-#autoMenu button { padding: 7px 18px; border-radius: 8px; font-size: 13px; text-align: left; white-space: nowrap; }
-#autoMenu button.on { background: var(--accent-bg); }
+#autoMenu, #zoomMenu { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; padding: 6px; border-radius: 12px; background: var(--panel); box-shadow: 0 4px 18px rgba(0,0,0,.5); }
+#autoMenu[hidden], #zoomMenu[hidden] { display: none; }
+#autoMenu button, #zoomMenu button { padding: 7px 18px; border-radius: 8px; font-size: 13px; text-align: left; white-space: nowrap; }
+#autoMenu button.on, #zoomMenu button.on { background: var(--accent-bg); }
+#zoomMenu { max-height: calc(100vh - 90px); overflow-y: auto; min-width: 138px; }
+#zoomMenu .menu-label { padding: 7px 12px 3px; color: #aeb8cc; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 
 /* laser pointer */
 #laser { position: fixed; left: 0; top: 0; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #ff2d2d; box-shadow: 0 0 14px 6px rgba(255,45,45,.65); pointer-events: none; z-index: 40; }
@@ -74,3 +76,10 @@ body.laser { cursor: none; }
 #help dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 22px; margin: 0; font-size: 14px; }
 #help dt { color: var(--accent); font-weight: 600; white-space: nowrap; }
 #help dd { margin: 0; color: #e8eaed; }
+
+@media (max-width: 700px) {
+  #scrub { width: 16vw; }
+  #bar { gap: 3px; padding-inline: 7px; }
+  #bar .chip { padding-inline: 7px; }
+  #clock { display: none; }
+}
