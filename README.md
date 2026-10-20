@@ -1,84 +1,117 @@
+<div align="center">
+
 # DriveSlide
 
-## PDF Slideshow for Google Drive
+### PDF Slideshow for Google Drive
 
-*Your PDFs. One click. Fullscreen.*
+**Your PDFs. One click. Fullscreen.**
 
-> Independent tool, not affiliated with or endorsed by Google. Google Drive is a trademark of Google LLC.
+Present a Drive PDF as a focused slideshow in Chrome. Start right away, or prepare individual slides first.
 
-Turn Google Drive PDFs into instant slideshows with one click. No downloading or extra tabs. DriveSlide is a Chrome extension with no server or analytics, and it collects no data.
+`Chrome Extension` &nbsp; `Manifest V3` &nbsp; `MIT License`
+
+</div>
+
+> DriveSlide is an independent project. It is not affiliated with or endorsed by Google. Google Drive is a trademark of Google LLC.
+
+---
+
+## Present a PDF your way
+
+Select one PDF in Google Drive and use the **▶ Present PDF** launcher. Hover or focus it to choose a mode:
+
+| Mode | What happens |
+|---|---|
+| **Present PDF** | Starts the slideshow immediately. |
+| **Advanced present PDF** | Preview each page and set its rotation or horizontal/vertical flip before starting. |
+
+The slideshow opens over the Drive tab. If the browser blocks the in-page viewer, DriveSlide opens it in a tab instead. You can also start from the extension toolbar, paste a Drive link, or use Drive's right-click menu.
 
 ## Features
-- **Choose how to present.** One **▶ Present PDF** button appears when exactly one PDF is selected (or open in Drive's preview). Hover it for **Present PDF** to start immediately or **Advanced present PDF** to preview slides and set rotation or flips. There is also a **Present as slideshow** item in Drive's right-click menu.
-- **In the same tab.** The slideshow opens as a fullscreen overlay on the Drive tab. Esc or ✕ closes it. If the page blocks the overlay, it falls back to a normal tab.
-- **Prepare each slide.** Before starting, preview pages and set an independent 0°/90°/180°/270° rotation or horizontal/vertical flip for each one.
-- **Other entry points.** The toolbar popup presents the current Drive PDF tab or any pasted Drive link, and a right-click on a Drive link also works.
-- **Controls.** Hover arrows, keyboard, click and a seek bar. Auto-advance (1/2/5/10 s) with a progress line, `↑ ↓` to change speed, an overview grid (`G`), laser pointer (`L`), black screen (`B`), presentation timer, fullscreen (`F`) and a shortcuts panel (`?`).
-- **Zoom.** Fit screen, fit height or fit width, or choose 10%, 25%, 50%, 75%, 100%, 125%, 150%, 175% or 200%.
 
-## Install (development build)
-1. Open `chrome://extensions` and turn on **Developer mode**.
-2. **Load unpacked** and select the `extension/` folder (not `dist/`).
-3. Open Google Drive, select a PDF, and hover **▶ Present PDF**. Choose **Present PDF** to start right away or **Advanced present PDF** to configure slides first.
+- **Slide-by-slide viewing:** show one PDF page at a time, scaled to your screen.
+- **Per-slide adjustments:** set 0°, 90°, 180° or 270° rotation; flip a page horizontally or vertically.
+- **Fit and zoom:** fit to screen, height or width, or choose 10%, 25%, 50%, 75%, 100%, 125%, 150%, 175% or 200%.
+- **Flexible navigation:** keyboard, click controls, hover arrows and a seek bar.
+- **Presenter tools:** manual or timed advance (1, 2, 5 or 10 seconds), progress line, slide overview, laser pointer, black screen, timer and fullscreen.
 
-For the Web Store build run `python build.py` and upload `dist/driveslide-<version>.zip`. See `store-listing/PUBLISH_CHECKLIST.md`.
+### Keyboard controls
 
-## Usage
-| Key | Action |
+| Keys | Action |
 |---|---|
-| → / Space / click right | Next slide |
-| ← / click left third | Previous slide |
-| ↑ | Auto-advance slower: 2 → 5 → 10 s |
-| ↓ | Auto-advance faster: 10 → 5 → 2 → 1 s → manual |
-| G / L / B / F / ? | Overview / laser / black screen / fullscreen / help |
-| Home / End | First / last slide |
-| Esc | Close the open panel, then the slideshow |
+| `→`, `Space` | Next slide |
+| `←` | Previous slide |
+| `↑` / `↓` | Change auto-advance speed |
+| `Home` / `End` | First / last slide |
+| `G` | Open slide overview |
+| `L` / `B` | Laser pointer / black screen |
+| `F` / `?` | Fullscreen / shortcut guide |
+| `Esc` | Close the open panel, then the presentation |
+
+## Privacy, in plain language
+
+DriveSlide has no developer-operated server, account, analytics, telemetry or advertising. It does not send your PDF to the developer.
+
+When you choose a file, DriveSlide reads the Drive page and selected file information locally so it can identify the PDF. To present it, the extension requests the PDF directly from Google using your existing signed-in browser session. The PDF is held in browser memory for rendering and is not saved to disk by DriveSlide. It is discarded when the viewer closes.
+
+The extension does not read or store your Google password, cookies or sign-in tokens. It does not bypass Drive permissions: a file that Google will not let you download cannot be presented. A slideshow opened in its own tab contains the Drive file ID in that tab's URL and may appear in Chrome's local browsing history.
+
+### Extension access
+
+| Access | Why it is needed |
+|---|---|
+| `contextMenus` | Add a presentation action to Drive link context menus. |
+| `drive.google.com` | Show the launcher on Drive and read the selected file's ID. |
+| `drive.usercontent.google.com` | Fetch the PDF you chose into browser memory. |
+
+The extension uses no storage, downloads, cookies, history, OAuth or API keys. Its PDF renderer is bundled locally; no remote scripts are loaded. See the full [privacy policy](store-listing/PRIVACY_POLICY.md) and [permission rationale](store-listing/PRIVACY_QUESTIONNAIRE.md).
+
+## Install the development build
+
+1. In Chrome, open `chrome://extensions` and enable **Developer mode**.
+2. Choose **Load unpacked** and select this repository's `extension/` folder.
+3. Open Google Drive, select one PDF, then choose **Present PDF** or **Advanced present PDF** from the launcher.
+
+The extension's own install welcome screen is a separate page that appears after installation. This README is the repository overview and setup guide.
+
+> A Chrome Web Store listing is not linked here. Add its URL after the extension is published.
+
+## Limitations
+
+- Only PDFs that your Google account can download are supported. Other Drive file types are not.
+- Drive selection detection and the right-click menu depend on page markup that Google may change. If the launcher does not appear, reload the Drive tab or use the toolbar popup.
+- The automated smoke test uses a simulated Drive page. Manual testing with a real Drive account is still needed; see the [release checklist](store-listing/PUBLISH_CHECKLIST.md).
 
 ## Development
-Requirements: Python 3 for the build, and Node 22+ plus Google Chrome for the end-to-end test.
 
+Requirements: Python 3 for the audit/build, and Node.js 22 or newer plus Chrome for the end-to-end smoke test.
+
+```sh
+python3 build.py
+node tests/e2e.mjs
 ```
-extension/        the extension (manifest, scripts, viewer, bundled pdf.js in vendor/)
-store-listing/    store copy, privacy policy and questionnaire draft, asset and publish checklists
-tests/e2e.mjs     real-Chrome smoke test with faked Google endpoints
-build.py          audit + reference checks + zip packaging
+
+`build.py` audits the Manifest V3 permissions, content security policy, bundled pdf.js hashes, file references and listing limits, then creates a Chrome Web Store package under `dist/`. The smoke test loads the unpacked extension in Chrome and uses fake Google Drive endpoints; it does not access a real account.
+
+Project map:
+
+```text
+extension/       Chrome extension source and bundled PDF renderer
+store-listing/   Store copy, privacy policy and release checklists
+tests/e2e.mjs    Chrome end-to-end smoke test
+build.py         Security/reference audit and store package builder
 ```
 
-| Command | What it does |
-|---|---|
-| `python build.py` | Audits permissions, CSP, pinned pdf.js hashes, forbidden APIs, file references and listing limits, then writes `dist/driveslide-<version>.zip`. |
-| `node tests/e2e.mjs` | Loads the unpacked extension in Chrome via the DevTools pipe, fakes the Drive page and PDF download, and runs 27 UI checks. |
+## Support DriveSlide
 
-The audit fails the build if the extension asks for more than `contextMenus` and the two Google hosts, if the content security policy widens, if the pdf.js hashes change, or if first-party code uses `eval`, `innerHTML`, XHR, sockets, storage, cookies or any other URL.
+DriveSlide is free to use. If it becomes useful to you, you can leave an optional tip to support its development. **A donation link will be added here later.** Tips will never be required to use the extension.
 
-## Permissions (and why)
-- `contextMenus`: right-click item on Drive links.
-- Host `https://drive.google.com/*`: the content script that shows the button and menu item, and reading the file ID from Drive URLs.
-- Host `https://drive.usercontent.google.com/*`: fetching the PDF you chose, into memory.
-- Web-accessible resource `viewer.html`, exposed to `drive.google.com` only, for the in-tab overlay.
+For support or feedback, open an [issue in this repository](https://github.com/BeyondAman/DriveSlide/issues).
 
-No `tabs`, `storage`, `cookies`, `history`, `downloads` or `activeTab`. The full privacy statement is in `store-listing/PRIVACY_POLICY.md`.
+---
 
-## Security and privacy model
-- No backend, analytics or telemetry. The CSP allows network access to the two Google hosts only.
-- The PDF is fetched into memory (`cache: "no-store"`), never written to disk, and discarded when the viewer closes.
-- No OAuth or API keys. It uses your existing Drive browser session.
-- The content script reads the page URL, title and the selected item's file ID and markup, only to decide whether and what to present, and stores or sends none of it.
-- The background worker accepts messages only from its own content script on a real `drive.google.com` tab, and every file ID is validated.
-- pdf.js 4.4.168 is bundled (`extension/vendor/`, SHA-256 pinned in `build.py`) and no remote code is loaded.
+<div align="center">
 
-## Troubleshooting
-- **No Present button:** select exactly one PDF and reload the Drive tab. It hides for folders, other file types and multi-selections.
-- **"Did not come back as a PDF":** sign in to Google in this Chrome profile, and check that you can download the file.
-- **Right-click item missing:** it depends on Drive's markup. Use the button or toolbar icon.
-- **After reloading the extension:** reload open Drive tabs.
+Made independently for people who present PDFs.
 
-## Known limitations
-- Files whose owner disabled downloading for viewers can't be presented (Drive refuses them, and DriveSlide doesn't work around that).
-- Selection detection and the right-click item rely on Drive's undocumented page markup, which Google can change without notice. They fail silently and the URL-based paths keep working.
-- The end-to-end test uses a fake Drive page. It has not been run against real Drive.
-- Not yet manually tested in Chrome with a real Google account. See `store-listing/PUBLISH_CHECKLIST.md`.
-- Icons are draft artwork.
-
-## If the session-based fetch proves fragile
-Switch to `chrome.identity` with the `drive.readonly` scope (Drive API `alt=media`). That is more robust but needs a Google Cloud OAuth client and Google's verification of a restricted scope.
+</div>
