@@ -1,7 +1,10 @@
 import { parseDriveId, viewerUrl } from "./drive-id.js";
 
-function present(id) {
-  if (id) chrome.tabs.create({ url: viewerUrl(id) });
+function present(id, mode = "present") {
+  if (!id) return;
+  const url = new URL(viewerUrl(id));
+  url.searchParams.set("mode", mode === "advanced" ? "advanced" : "present");
+  chrome.tabs.create({ url: url.href });
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -27,5 +30,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   let host = "";
   try { host = new URL(sender.tab && sender.tab.url).hostname; } catch { return; }
   if (host !== "drive.google.com") return;
-  if (msg && msg.type === "present" && typeof msg.id === "string") present(parseDriveId(msg.id));
+  if (msg && msg.type === "present" && typeof msg.id === "string") {
+    present(parseDriveId(msg.id), msg.mode);
+  }
 });

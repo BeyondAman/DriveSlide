@@ -86,10 +86,19 @@ async function newTab(url) {
   await setup(sessionId); await send("Page.enable", {}, sessionId); await send("DOM.enable", {}, sessionId);
   await send("Page.navigate", { url }, sessionId); await sleep(2500); return { targetId, sid: sessionId };
 }
-async function findPill(sid) {
+async function findLauncher(sid) {
   const { result: { root } } = await send("DOM.getDocument", { depth: -1, pierce: true }, sid);
   let hit = null; (function walk(nd) { if (!nd || hit) return; const a = nd.attributes || [];
-    const i = a.indexOf("class"); if (i >= 0 && a[i + 1].split(" ").includes("pill")) { hit = { id: nd.nodeId, cls: a[i + 1] }; return; }
+    const i = a.indexOf("class"); if (i >= 0 && a[i + 1].split(" ").includes("launcher")) { hit = { id: nd.nodeId, cls: a[i + 1] }; return; }
+    for (const c of [...(nd.children || []), ...(nd.shadowRoots || []), ...(nd.contentDocument ? [nd.contentDocument] : [])]) walk(c); })(root);
+  return hit;
+}
+async function findAdvancedChoice(sid) {
+  const { result: { root } } = await send("DOM.getDocument", { depth: -1, pierce: true }, sid);
+  let hit = null; (function walk(nd) { if (!nd || hit) return;
+    const a = nd.attributes || [], i = a.indexOf("class");
+    const text = (node) => (node.nodeValue || "") + (node.children || []).map(text).join("");
+    if (i >= 0 && a[i + 1].split(" ").includes("choice") && nd.nodeName === "BUTTON" && text(nd).includes("Advanced present PDF")) { hit = { id: nd.nodeId }; return; }
     for (const c of [...(nd.children || []), ...(nd.shadowRoots || []), ...(nd.contentDocument ? [nd.contentDocument] : [])]) walk(c); })(root);
   return hit;
 }
@@ -158,13 +167,13 @@ try {
 
   // content script on a faked Drive page
   const d = await newTab("https://drive.google.com/drive/my-drive");
-  check("drive page: pill hidden with nothing selected", (await findPill(d.sid))?.cls === "pill", JSON.stringify(await findPill(d.sid)));
+  check("drive page: pill hidden with nothing selected", (await findLauncher(d.sid))?.cls === "launcher", JSON.stringify(await findLauncher(d.sid)));
   await ev(d.sid, "document.getElementById('r1').setAttribute('aria-selected','true')"); await sleep(600);
-  check("drive page: pill shows when one PDF is selected", !!(await findPill(d.sid))?.cls.includes("show"));
+  check("drive page: pill shows when one PDF is selected", !!(await findLauncher(d.sid))?.cls.includes("show"));
   await ev(d.sid, "document.getElementById('r1').setAttribute('aria-selected','false');document.getElementById('r2').setAttribute('aria-selected','true')"); await sleep(600);
-  check("drive page: pill hides for a .docx", (await findPill(d.sid))?.cls === "pill");
+  check("drive page: pill hides for a .docx", (await findLauncher(d.sid))?.cls === "launcher");
   await ev(d.sid, "document.getElementById('r1').setAttribute('aria-selected','true')"); await sleep(600);
-  check("drive page: pill hides when 2 files are selected", (await findPill(d.sid))?.cls === "pill");
+  check("drive page: pill hides when 2 files are selected", (await findLauncher(d.sid))?.cls === "launcher");
   await ev(d.sid, "document.getElementById('r2').setAttribute('aria-selected','false')"); await sleep(600);
 
   await ev(d.sid, `(()=>{const r=document.getElementById('r1');r.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}));
@@ -176,10 +185,15 @@ try {
   const mi = await ev(d.sid, "String((document.querySelector('[data-driveslide]')||{}).textContent)");
   check("drive page: context-menu item injected on right-click", mi === "Present as slideshow", mi);
 
-  const pill = await findPill(d.sid);
+  const pill = await findLauncher(d.sid);
   const bm = await send("DOM.getBoxModel", { nodeId: pill.id }, d.sid); const q = bm.result.model.content;
   const cx = (q[0] + q[4]) / 2, cy = (q[1] + q[5]) / 2;
-  for (const t of ["mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type: t, x: cx, y: cy, button: "left", clickCount: 1 }, d.sid);
+  await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: cx, y: cy }, d.sid); await sleep(200);
+  const choice = await findAdvancedChoice(d.sid);
+  check("launcher: hover reveals the Advanced present PDF option", !!choice);
+  const cb = await send("DOM.getBoxModel", { nodeId: choice.id }, d.sid); const cq = cb.result.model.content;
+  const ccx = (cq[0] + cq[4]) / 2, ccy = (cq[1] + cq[5]) / 2;
+  for (const t of ["mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type: t, x: ccx, y: ccy, button: "left", clickCount: 1 }, d.sid);
   await sleep(4500);
   check("overlay: created in the Drive tab", (await ev(d.sid, "!!document.getElementById('driveslide-overlay')")) === true);
   const targets0 = (await send("Target.getTargets")).result.targetInfos;

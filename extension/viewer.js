@@ -427,14 +427,17 @@ function bindControls() {
     return;
   }
   $("status").textContent = pdf.numPages + (pdf.numPages === 1 ? " slide ready" : " slides ready");
-  $("setupPanel").hidden = false;
-  bindSetupControls();
-  updateSetupControls();
-  renderSetupPreview();
   bindControls();
   const begin = () => { startedAt = Date.now(); $("splash").classList.add("gone"); go(1); wake(); };
-  // Keep setup available in both the extension tab and the in-Drive overlay.
-  // Fullscreen is requested from this click when the viewer owns the tab.
-  $("start").onclick = () => { if (!embedded) toggleFs(); begin(); };
-  $("start").focus();
+  const advanced = new URL(location.href).searchParams.get("mode") === "advanced";
+  if (advanced) {
+    $("setupPanel").hidden = false;
+    bindSetupControls();
+    updateSetupControls();
+    renderSetupPreview();
+    $("start").onclick = () => { if (!embedded) toggleFs(); begin(); };
+    $("start").focus();
+  } else {
+    begin();
+  }
 })();

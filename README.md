@@ -9,7 +9,7 @@
 Turn Google Drive PDFs into instant slideshows with one click. No downloading or extra tabs. DriveSlide is a Chrome extension with no server or analytics, and it collects no data.
 
 ## Features
-- **Present from Drive.** A **▶ Present PDF** button appears when exactly one PDF is selected (or open in Drive's preview). There is also a **Present as slideshow** item in Drive's right-click menu.
+- **Choose how to present.** One **▶ Present PDF** button appears when exactly one PDF is selected (or open in Drive's preview). Hover it for **Present PDF** to start immediately or **Advanced present PDF** to preview slides and set rotation or flips. There is also a **Present as slideshow** item in Drive's right-click menu.
 - **In the same tab.** The slideshow opens as a fullscreen overlay on the Drive tab. Esc or ✕ closes it. If the page blocks the overlay, it falls back to a normal tab.
 - **Prepare each slide.** Before starting, preview pages and set an independent 0°/90°/180°/270° rotation or horizontal/vertical flip for each one.
 - **Other entry points.** The toolbar popup presents the current Drive PDF tab or any pasted Drive link, and a right-click on a Drive link also works.
@@ -19,7 +19,7 @@ Turn Google Drive PDFs into instant slideshows with one click. No downloading or
 ## Install (development build)
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. **Load unpacked** and select the `extension/` folder (not `dist/`).
-3. Open Google Drive, click a PDF, then click **▶ Present PDF**.
+3. Open Google Drive, select a PDF, and hover **▶ Present PDF**. Choose **Present PDF** to start right away or **Advanced present PDF** to configure slides first.
 
 For the Web Store build run `python build.py` and upload `dist/driveslide-<version>.zip`. See `store-listing/PUBLISH_CHECKLIST.md`.
 
