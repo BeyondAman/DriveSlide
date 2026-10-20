@@ -1,4 +1,5 @@
 import * as pdfjsLib from "./vendor/pdf.min.mjs";
+import { parseDriveId } from "./drive-id.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("vendor/pdf.worker.min.mjs");
 
@@ -123,28 +124,42 @@ async function buildGrid() {
   if (gridBuilt) return;
   gridBuilt = true;
   const grid = $("grid");
+  const thumbnails = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      thumbnails.unobserve(entry.target);
+      renderThumbnail(Number(entry.target.dataset.page));
+    }
+  }, { root: grid, rootMargin: "240px" });
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const b = document.createElement("button");
     b.className = "thumb" + (i === page ? " cur" : "");
+    b.dataset.page = i;
     const c = document.createElement("canvas");
     const l = document.createElement("span");
     l.textContent = i;
     b.append(c, l);
     b.onclick = () => { go(i); setOverview(false); };
     grid.appendChild(b);
+    thumbnails.observe(b);
   }
+}
+
+async function renderThumbnail(n) {
+  if (!pdf) return;
+  let p;
   try {
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const p = await pdf.getPage(i);
-      const base = p.getViewport({ scale: 1 });
-      const vp = p.getViewport({ scale: 280 / base.width });
-      const c = grid.children[i - 1].firstChild;
-      c.width = Math.floor(vp.width);
-      c.height = Math.floor(vp.height);
-      await p.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-      p.cleanup();
-    }
-  } catch { /* document closed while rendering thumbnails */ }
+    p = await pdf.getPage(n);
+    const base = p.getViewport({ scale: 1 });
+    const vp = p.getViewport({ scale: 280 / base.width });
+    const c = $("grid").children[n - 1]?.firstChild;
+    if (!c) return;
+    c.width = Math.floor(vp.width);
+    c.height = Math.floor(vp.height);
+    await p.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+  } catch { /* document closed or thumbnail render failed */ }
+  finally { p?.cleanup(); }
 }
 
 function setOverview(on) {
@@ -266,8 +281,8 @@ function bindControls() {
 }
 
 (async () => {
-  const id = decodeURIComponent(location.hash.slice(1));
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) { fail("No valid Google Drive file id was provided."); return; }
+  const id = parseDriveId(location.hash.slice(1));
+  if (!id) { fail("No valid Google Drive file id was provided."); return; }
   try {
     const data = await load(id);
     pdf = await pdfjsLib.getDocument({

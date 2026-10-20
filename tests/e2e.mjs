@@ -139,6 +139,8 @@ try {
   check("popup: loads", (await ev(pop.sid, "document.querySelector('h1').textContent")) === "DriveSlide");
   const msg = await ev(pop.sid, "(async()=>{document.getElementById('link').value='https://example.com/x';document.getElementById('go').click();await new Promise(r=>setTimeout(r,200));return document.getElementById('msg').textContent})()");
   check("popup: rejects a non-Drive link", msg !== "" && !String(msg).startsWith("EXC"), msg);
+  const shortId = await ev(pop.sid, "(async()=>{document.getElementById('link').value='https://drive.google.com/open?id=bad';document.getElementById('go').click();await new Promise(r=>setTimeout(r,200));return document.getElementById('msg').textContent})()");
+  check("popup: rejects a malformed Drive file id", shortId.includes("Not a valid"), shortId);
   await send("Target.closeTarget", { targetId: pop.targetId });
 
   // content script on a faked Drive page
