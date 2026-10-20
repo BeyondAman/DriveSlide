@@ -4,13 +4,16 @@ function present(id) {
   if (id) chrome.tabs.create({ url: viewerUrl(id) });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.contextMenus.create({
     id: "driveslide-present",
     title: "Present PDF as slideshow (DriveSlide)",
     contexts: ["link"],
     targetUrlPatterns: ["https://drive.google.com/file/d/*", "https://drive.google.com/open*"],
   });
+  if (details.reason === "install") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
+  }
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
